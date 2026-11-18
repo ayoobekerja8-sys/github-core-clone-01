@@ -63,7 +63,7 @@ export function readPack(pack: Buffer, extraBases?: Map<string, GitObject>) {
   }
   return out;
 }
-export function pktRead(b: Buffer) { const out: Buffer[] = []; let p = 0; while (p + 4 <= b.length) { const n = parseInt(b.toString('ascii', p, p + 4), 16); p += 4; if (!n) break; if (n < 4 || p + n - 4 > b.length) break; out.push(b.subarray(p, p + n - 4)); p += n - 4; } return out; }
+export function pktRead(b: Buffer) { const out: Buffer[] = []; let p = 0; while (p + 4 <= b.length) { const n = parseInt(b.toString('ascii', p, p + 4), 16); p += 4; if (!n) break; if (n === 1 || n === 2) continue; if (n < 4 || p + n - 4 > b.length) break; out.push(b.subarray(p, p + n - 4)); p += n - 4; } return out; }
 export function deltaForTest(base: Buffer, result: Buffer) {
   let prefix = 0; while (prefix < base.length && prefix < result.length && base[prefix] === result[prefix]) prefix++;
   const suffix = Buffer.from('round-trip delta'); const target = Buffer.concat([base.subarray(0, prefix), suffix]);
