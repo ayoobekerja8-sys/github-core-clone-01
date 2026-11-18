@@ -38,7 +38,7 @@ export function makePack(objects: Map<string, GitObject>) {
   for (const o of objects.values()) { let n = o.data.length, first = (typeCodes[o.type] << 4) | (n & 15); n = Math.floor(n / 16); const hdr = [first]; while (n) { hdr.push((n & 127) | 128); n = Math.floor(n / 128); } parts.push(Buffer.from(hdr), deflateSync(o.data)); }
   const body = Buffer.concat(parts); return Buffer.concat([body, createHash('sha1').update(body).digest()]);
 }
-export function readPack(pack: Buffer) {
+export function readPack(pack: Buffer, extraBases?: Map<string, GitObject>) {
   if (pack.toString('ascii', 0, 4) !== 'PACK' || ![2, 3].includes(pack.readUInt32BE(4))) throw Error('bad pack header');
   const version = pack.readUInt32BE(4), count = pack.readUInt32BE(8), entries: any[] = []; let p = 12;
   for (let i = 0; i < count; i++) {
@@ -56,7 +56,7 @@ export function readPack(pack: Buffer) {
   while (pending.length) { const next: any[] = []; let progress = false;
     for (const e of pending) { let obj: GitObject | undefined;
       if (e.type < 6) obj = { type: codes[e.type]!, data: e.data };
-      else { const base = e.type === 6 ? resolved.get(e.baseOffset) : out.get(e.baseOid); if (!base) { next.push(e); continue; } const applied = applyDelta(base.data, e.data); obj = { type: base.type, data: applied }; }
+      else { const base = e.type === 6 ? resolved.get(e.baseOffset) : (out.get(e.baseOid) ?? extraBases?.get(e.baseOid)); if (!base) { next.push(e); continue; } const applied = applyDelta(base.data, e.data); obj = { type: base.type, data: applied }; }
       const id = oid(obj.type, obj.data); out.set(id, obj); resolved.set(e.offset, obj); progress = true;
     }
     if (!progress) throw Error('unresolved pack delta base'); pending = next;
