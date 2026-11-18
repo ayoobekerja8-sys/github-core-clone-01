@@ -33,9 +33,10 @@ function applyDelta(base: Buffer, delta: Buffer): Buffer {
   const out = Buffer.concat(chunks, size); if (out.length !== resultSize) throw Error('delta result size mismatch'); return out;
 }
 function varint(n: number) { const a = [n & 127]; while ((n = Math.floor(n / 128))) a.unshift((n & 127) | 128); return Buffer.from(a); }
+const deflateCache = new Map<string, Buffer>();
 export function makePack(objects: Map<string, GitObject>) {
   const parts = [Buffer.from('PACK'), Buffer.from([0, 0, 0, 2]), Buffer.from([objects.size >>> 24, objects.size >>> 16 & 255, objects.size >>> 8 & 255, objects.size & 255])];
-  for (const o of objects.values()) { let n = o.data.length, b = (typeCodes[o.type] << 4) | (n & 15); n = Math.floor(n / 16); if (n) b |= 128; const hdr = [b]; while (n) { let c = n & 127; n = Math.floor(n / 128); if (n) c |= 128; hdr.push(c); } parts.push(Buffer.from(hdr), deflateSync(o.data)); }
+  for (const [id, o] of objects) { let n = o.data.length, b = (typeCodes[o.type] << 4) | (n & 15); n = Math.floor(n / 16); if (n) b |= 128; const hdr = [b]; while (n) { let c = n & 127; n = Math.floor(n / 128); if (n) c |= 128; hdr.push(c); } let deflated = deflateCache.get(id); if (!deflated) { deflated = deflateSync(o.data); deflateCache.set(id, deflated); } parts.push(Buffer.from(hdr), deflated); }
   const body = Buffer.concat(parts); return Buffer.concat([body, createHash('sha1').update(body).digest()]);
 }
 export function readPack(pack: Buffer, extraBases?: Map<string, GitObject>) {
